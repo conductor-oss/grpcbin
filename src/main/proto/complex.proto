@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package complex;
+
+// Import well-known types
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+
+// Top-level message demonstrating advanced structures
+message ComplexMessage {
+  // Primitive fields
+  int32 id = 1;
+  string name = 2;
+
+  // Nested message with repeated fields
+  message NestedMessage {
+    string key = 1;
+    repeated string values = 2; // Repeated strings
+  }
+  repeated NestedMessage nested_list = 3;
+
+  // Map with nested message
+  map<string, NestedMessage> nested_map = 4;
+
+  // Map of repeated values (define a message for repeated values)
+  message StringList {
+    repeated string values = 1;
+  }
+  map<string, StringList> map_of_lists = 5;
+
+  // Map of maps (define a message for the inner map)
+  message InnerMap {
+    map<string, int32> entries = 1;
+  }
+  map<string, InnerMap> map_of_maps = 6;
+
+  // Map of lists containing another message (use a wrapper message for lists)
+  message SubMessageList {
+    repeated SubMessage items = 1;
+  }
+  map<string, SubMessageList> map_of_message_lists = 7;
+
+  // Nested message containing another map
+  message NestedMapMessage {
+    string outer_key = 1;
+    map<string, StringList> inner_map = 2; // Map of repeated integers wrapped in a message
+  }
+  repeated NestedMapMessage nested_map_message_list = 8;
+
+  // Repeated nested messages with complex structures
+  message DeeplyNested {
+    string id = 1;
+    map<string, InnerMap> complex_map = 2; // Map of maps containing nested messages
+    repeated NestedMapMessage complex_list = 3; // Repeated nested map messages
+  }
+  repeated DeeplyNested deeply_nested_list = 9;
+
+  // Well-known types
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Any any_field = 11;
+
+  // Enum for demonstrating usage in complex structures
+  enum Status {
+    UNKNOWN = 0;
+    ACTIVE = 1;
+    INACTIVE = 2;
+  }
+  Status current_status = 12;
+
+  // Oneof field for mutually exclusive data
+  oneof special_data {
+    string special_string = 13;
+    int32 special_number = 14;
+  }
+
+  // Repeated map field
+  message RepeatedMap {
+    map<string, int32> data = 1;
+  }
+  repeated RepeatedMap repeated_maps = 15;
+
+  // Map of enums
+  map<string, Status> status_map = 16;
+
+  // Reserved fields
+  reserved 17, 18;
+  reserved "legacy_field";
+}
+
+// Example of another message for use in nested or map structures
+message SubMessage {
+  string description = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
