@@ -32,8 +32,24 @@ public class HelloWorldServiceImpl extends HelloWorldServiceGrpc.HelloWorldServi
     @Override
     public void sayHelloWithDelay(HelloRequest request, StreamObserver<HelloResponse> responseObserver) {
         try {
-            // Simulate a delay (e.g., 5 seconds)
-            TimeUnit.SECONDS.sleep(5);
+            // Generate a random number between 0 and 100
+            int delayChance = random.nextInt(100) + 1;
+
+            // Determine the delay based on the random number
+            long delayInSeconds;
+            if (delayChance <= 85) {
+                delayInSeconds = 5;  // 85% chance for ~5 seconds delay
+            } else if (delayChance <= 95) {
+                delayInSeconds = 10; // 10% chance for ~10 seconds delay
+            } else if (delayChance <= 99) {
+                delayInSeconds = 15; // 4% chance for ~15 seconds delay
+            } else {
+                delayInSeconds = 20; // 1% chance for ~20 seconds delay
+            }
+
+            System.out.println("Delaying for " + delayInSeconds + " seconds...");
+            TimeUnit.SECONDS.sleep(delayInSeconds);
+            
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
