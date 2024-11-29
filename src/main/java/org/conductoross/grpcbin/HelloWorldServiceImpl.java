@@ -1,6 +1,8 @@
 package org.conductoross.grpcbin;
 
 import complex.Complex;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 
 import java.util.Random;
@@ -49,7 +51,7 @@ public class HelloWorldServiceImpl extends HelloWorldServiceGrpc.HelloWorldServi
 
             System.out.println("Delaying for " + delayInSeconds + " seconds...");
             TimeUnit.SECONDS.sleep(delayInSeconds);
-            
+
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -94,6 +96,10 @@ public class HelloWorldServiceImpl extends HelloWorldServiceGrpc.HelloWorldServi
                 return;
             }
 
+            // Simulate some processing (delay) to emulate load
+            int delay = new Random().nextInt(5) + 1;  // Random delay between 1 and 5 seconds
+            TimeUnit.SECONDS.sleep(delay);
+
             // Simulate some processing time
             String message = "Hello, " + request.getName();
             HelloResponse response = HelloResponse.newBuilder()
@@ -101,10 +107,74 @@ public class HelloWorldServiceImpl extends HelloWorldServiceGrpc.HelloWorldServi
                     .build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         } finally {
             // Release the permit after processing
             semaphore.release();
         }
+    }
+
+    @Override
+    public void sayHelloWithFailureTypes(org.conductoross.grpcbin.HelloRequest request,
+                                         io.grpc.stub.StreamObserver<org.conductoross.grpcbin.HelloResponse> responseObserver) {
+        Random random = new Random();
+
+        // 10% chance of bad request (400)
+        if (random.nextInt(100) < 10) {
+            responseObserver.onError(new StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription("Bad Request")));
+            return;
+        }
+
+        // 20% chance of service unavailable (503)
+        if (random.nextInt(100) < 20) {
+            responseObserver.onError(new StatusRuntimeException(Status.UNAVAILABLE.withDescription("Service Unavailable")));
+            return;
+        }
+
+        // 5% chance of rate limiting (429)
+        if (random.nextInt(100) < 5) {
+            responseObserver.onError(new StatusRuntimeException(Status.RESOURCE_EXHAUSTED.withDescription("Rate limit exceeded")));
+            return;
+        }
+
+        // Normal response
+        String message = "Hello, " + request.getName();
+        HelloResponse response = HelloResponse.newBuilder()
+                .setMessage(message)
+                .build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+
+    }
+
+    @Override
+    public void sayHelloWithExternalDependency(org.conductoross.grpcbin.HelloRequest request,
+                                               io.grpc.stub.StreamObserver<org.conductoross.grpcbin.HelloResponse> responseObserver) {
+        // Simulate external system delay (API, DB)
+        int externalDelay = random.nextInt(10) + 1; // 1 to 10 seconds
+        try {
+            System.out.println("Simulating external API delay: " + externalDelay + " seconds");
+            TimeUnit.SECONDS.sleep(externalDelay);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Simulate a 10% chance of failure from the external system
+        if (random.nextInt(100) < 10) {
+            responseObserver.onError(new RuntimeException("External API failure"));
+            return;
+        }
+
+        // Generate response based on the external system’s success
+        String message = "Hello, " + request.getName() + ". Data retrieved successfully from external service!";
+
+        // Build the response with dynamic content
+        HelloResponse response = HelloResponse.newBuilder()
+                .setMessage(message)
+                .build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
     }
 
     @Override

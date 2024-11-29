@@ -12,7 +12,9 @@ service HelloWorldService {
   rpc SayHelloWithDelay (HelloRequest) returns (HelloResponse) {}
   rpc SayHelloIntermittentFailures (HelloRequest) returns (HelloResponse) {}
   rpc SayHelloServiceDown (HelloRequest) returns (HelloResponse) {}
+  rpc sayHelloWithFailureTypes (HelloRequest) returns (HelloResponse) {}
   rpc SayHelloOverloaded (HelloRequest) returns (HelloResponse) {}
+  rpc sayHelloWithExternalDependency (HelloRequest) returns (HelloResponse) {}
   rpc ComplexRequest(complex.ComplexMessage) returns (complex.ComplexMessage) {}
   rpc ComplexRequestStream(complex.ComplexMessage) returns (stream complex.ComplexMessage) {}
 }
