@@ -40,11 +40,11 @@ public class HelloWorldServiceImpl extends HelloWorldServiceGrpc.HelloWorldServi
             // Determine the delay based on the random number
             long delayInSeconds;
             if (delayChance <= 85) {
-                delayInSeconds = 5;  // 85% chance for ~5 seconds delay
+                delayInSeconds = 1;  // 85% chance for ~5 seconds delay
             } else if (delayChance <= 95) {
-                delayInSeconds = 10; // 10% chance for ~10 seconds delay
+                delayInSeconds = 5; // 10% chance for ~10 seconds delay
             } else if (delayChance <= 99) {
-                delayInSeconds = 15; // 4% chance for ~15 seconds delay
+                delayInSeconds = 10; // 4% chance for ~15 seconds delay
             } else {
                 delayInSeconds = 20; // 1% chance for ~20 seconds delay
             }
