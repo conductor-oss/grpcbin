@@ -3,21 +3,23 @@
 name: Publish a build
 
 on:
-  workflow_dispatch:
-  release:
-    types:
-      - released
-      - prereleased
-
-permissions:
-  contents: read
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   publish:
-    runs-on: ubuntu-latest-8-cores
+    runs-on: ubuntu-latest
     name: Gradle Build and Publish to Container Registry
     steps:
       - uses: actions/checkout@v3
+
+      - name: Set execute permissions for gradlew
+        run: chmod +x ./gradlew
+        
       - name: Set up Zulu JDK 21
         uses: actions/setup-java@v4
         with:
