@@ -3,14 +3,12 @@
 name: Publish a build
 
 on:
-  workflow_dispatch:
-  release:
-    types:
-      - released
-      - prereleased
-
-permissions:
-  contents: read
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   publish:
