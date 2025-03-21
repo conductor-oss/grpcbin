@@ -17,6 +17,40 @@ service HelloWorldService {
   rpc SayHelloWithExternalDependency (HelloRequest) returns (HelloResponse) {}
   rpc ComplexRequest(complex.ComplexMessage) returns (complex.ComplexMessage) {}
   rpc ComplexRequestStream(complex.ComplexMessage) returns (stream complex.ComplexMessage) {}
+
+  rpc SayHelloWithCyclicalDegradation (DegradationRequest) returns (DegradationResponse) {}
+  rpc ResetSimulationState (ResetRequest) returns (ResetResponse) {}
+}
+
+message DegradationRequest {
+  int32 normal_period = 1;        // Duration of normal operation phase (seconds)
+  int32 degradation_period = 2;   // Duration of degradation phase (seconds)
+  int32 failure_period = 3;       // Duration of failure phase (seconds)
+  int32 recovery_period = 4;      // Duration of recovery phase (seconds)
+  int32 initial_delay = 5;        // Initial delay in milliseconds
+  int32 degradation_rate = 6;     // Rate at which delay increases during degradation
+  int32 failure_threshold = 7;    // Threshold in ms after which service will fail
+}
+
+message DegradationResponse {
+  string status = 1;                      // Success or error status
+  int32 response_time = 2;                // The actual response time in ms
+  string phase = 3;                       // Current service phase
+  int64 time_remaining_in_phase = 4;      // Seconds remaining in current phase
+  string expected_circuit_breaker_state = 5;  // Expected circuit breaker state
+  int64 cycle_number = 6;                 // Current cycle number
+  int64 total_cycle_duration = 7;         // Total duration of one complete cycle in seconds
+  int64 time_in_current_cycle = 8;        // Elapsed time in current cycle in seconds
+}
+
+message ResetRequest {
+  string config_key = 1;  // Optional specific configuration key to reset (empty resets all)
+}
+
+message ResetResponse {
+  string status = 1;
+  string reset_type = 2;     // "specific" or "all"
+  int64 timestamp = 3;
 }
 
 message HelloRequest {
