@@ -5,13 +5,18 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 public class HelloWorldServiceImpl extends HelloWorldServiceGrpc.HelloWorldServiceImplBase {
     private static final Random random = new Random();
     private static final Semaphore semaphore = new Semaphore(5);// Limit to 5 concurrent requests
+    // Track service cycle state
+    private static final Map<String, ServiceState> serviceStates = new ConcurrentHashMap<>();
 
     @Override
     public void sayHello(HelloRequest request, StreamObserver<HelloResponse> responseObserver) {
@@ -187,5 +192,273 @@ public class HelloWorldServiceImpl extends HelloWorldServiceGrpc.HelloWorldServi
             responseObserver.onNext(response);
         }
         responseObserver.onCompleted();
+    }
+
+// Add these class members to your HelloWorldServiceImpl class
+
+    // First, add this method to your HelloWorldServiceImpl class
+    @Override
+    public void sayHelloWithCyclicalDegradation(
+            DegradationRequest request,
+            StreamObserver<DegradationResponse> responseObserver) {
+
+        try {
+            // Get the parameters from the request
+            int normalPeriod = request.getNormalPeriod();
+            int degradationPeriod = request.getDegradationPeriod();
+            int failurePeriod = request.getFailurePeriod();
+            int recoveryPeriod = request.getRecoveryPeriod();
+            int initialDelay = request.getInitialDelay();
+            int degradationRate = request.getDegradationRate();
+            int failureThreshold = request.getFailureThreshold();
+
+            // Create a unique key for this configuration
+            String configKey = String.format("cycle_%d_%d_%d_%d",
+                    normalPeriod, degradationPeriod, failurePeriod, recoveryPeriod);
+
+            // Get or create the service state
+            ServiceState state = serviceStates.computeIfAbsent(configKey, k ->
+                    new ServiceState(normalPeriod, degradationPeriod, failurePeriod, recoveryPeriod,
+                            initialDelay, degradationRate, failureThreshold));
+
+            // Get the current phase and calculated delay
+            ServicePhase currentPhase = state.getCurrentPhase();
+            int currentDelay = state.calculateCurrentDelay();
+            long timeRemaining = state.getTimeRemainingInPhase() / 1000; // convert to seconds
+
+            System.out.println("gRPC Service phase: " + currentPhase +
+                    ", Delay: " + currentDelay + "ms, Time remaining: " + timeRemaining + "s");
+
+            // If we're in the FAILING phase, fail the request
+            if (currentPhase == ServicePhase.FAILING) {
+                responseObserver.onError(
+                        Status.INTERNAL
+                                .withDescription("Service in FAILURE phase (" + timeRemaining +
+                                        "s remaining until recovery begins)")
+                                .asRuntimeException());
+                return;
+            }
+
+            // Apply the calculated delay
+            try {
+                Thread.sleep(currentDelay);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                responseObserver.onError(
+                        Status.INTERNAL
+                                .withDescription("Simulation was interrupted")
+                                .asRuntimeException());
+                return;
+            }
+
+            // Calculate cycle information
+            long totalCycleDuration = (normalPeriod + degradationPeriod + failurePeriod + recoveryPeriod);
+            long elapsedTimeSecs = (System.currentTimeMillis() - state.cycleStartTime) / 1000;
+            long cycleNumber = (elapsedTimeSecs / totalCycleDuration) + 1;
+            long timeInCurrentCycle = elapsedTimeSecs % totalCycleDuration;
+
+            // Build and send response
+            DegradationResponse response = DegradationResponse.newBuilder()
+                    .setStatus("success")
+                    .setResponseTime(currentDelay)
+                    .setPhase(currentPhase.toString())
+                    .setTimeRemainingInPhase(timeRemaining)
+                    .setExpectedCircuitBreakerState(state.getExpectedCircuitBreakerState())
+                    .setCycleNumber(cycleNumber)
+                    .setTotalCycleDuration(totalCycleDuration)
+                    .setTimeInCurrentCycle(timeInCurrentCycle)
+                    .build();
+
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            responseObserver.onError(
+                    Status.INTERNAL
+                            .withDescription("Error processing degradation simulation: " + e.getMessage())
+                            .asRuntimeException());
+        }
+    }
+
+    // Add a reset method for gRPC too
+    @Override
+    public void resetSimulationState(
+            ResetRequest request,
+            StreamObserver<ResetResponse> responseObserver) {
+
+        String configKey = request.getConfigKey().isEmpty() ? null : request.getConfigKey();
+        Map<String, Object> result = new HashMap<>();
+
+        if (configKey != null) {
+            // Reset only a specific configuration
+            serviceStates.remove(configKey);
+            result.put("resetType", "specific");
+            result.put("configKey", configKey);
+        } else {
+            // Reset all configurations
+            int serviceStatesCount = serviceStates.size();
+            serviceStates.clear();
+            result.put("resetType", "all");
+            result.put("serviceStatesCleared", serviceStatesCount);
+        }
+
+        result.put("status", "success");
+        result.put("timestamp", System.currentTimeMillis());
+
+        ResetResponse response = ResetResponse.newBuilder()
+                .setStatus((String) result.get("status"))
+                .setResetType((String) result.get("resetType"))
+                .setTimestamp((long) result.get("timestamp"))
+                .build();
+
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
+
+    // Enum to track the current phase of the service
+    public enum ServicePhase {
+        NORMAL,
+        DEGRADING,
+        FAILING,
+        RECOVERING
+    }
+
+    // Class to hold the service state - mostly copied from your CircuitBreakerService
+    private static class ServiceState {
+        private final int normalPeriod;
+        private final int degradationPeriod;
+        private final int failurePeriod;
+        private final int recoveryPeriod;
+        private final int initialDelay;
+        private final int degradationRate;
+        private final int failureThreshold;
+        private final int totalCycleDuration;
+        private long cycleStartTime;
+
+        public ServiceState(int normalPeriod, int degradationPeriod, int failurePeriod, int recoveryPeriod,
+                            int initialDelay, int degradationRate, int failureThreshold) {
+            this.cycleStartTime = System.currentTimeMillis();
+            this.normalPeriod = normalPeriod;
+            this.degradationPeriod = degradationPeriod;
+            this.failurePeriod = failurePeriod;
+            this.recoveryPeriod = recoveryPeriod;
+            this.initialDelay = initialDelay;
+            this.degradationRate = degradationRate;
+            this.failureThreshold = failureThreshold;
+            this.totalCycleDuration = normalPeriod + degradationPeriod + failurePeriod + recoveryPeriod;
+        }
+
+        public ServicePhase getCurrentPhase() {
+            long currentTime = System.currentTimeMillis();
+            long elapsedTime = currentTime - cycleStartTime;
+
+            // Check if we've completed a full cycle and need to reset
+            if (elapsedTime >= totalCycleDuration * 1000L) {
+                // Reset the cycle start time to begin a new cycle
+                long cyclesCompleted = elapsedTime / (totalCycleDuration * 1000L);
+                cycleStartTime += cyclesCompleted * (totalCycleDuration * 1000L);
+
+                // Recalculate elapsed time after reset
+                elapsedTime = currentTime - cycleStartTime;
+            }
+
+            if (elapsedTime < normalPeriod * 1000L) {
+                return ServicePhase.NORMAL;
+            } else if (elapsedTime < (normalPeriod + degradationPeriod) * 1000L) {
+                return ServicePhase.DEGRADING;
+            } else if (elapsedTime < (normalPeriod + degradationPeriod + failurePeriod) * 1000L) {
+                return ServicePhase.FAILING;
+            } else {
+                return ServicePhase.RECOVERING;
+            }
+        }
+
+        public long getTimeRemainingInPhase() {
+            long currentTime = System.currentTimeMillis();
+            long elapsedTime = currentTime - cycleStartTime;
+
+            // Check if we've completed a full cycle and need to reset
+            if (elapsedTime >= totalCycleDuration * 1000L) {
+                // Reset the cycle start time to begin a new cycle
+                long cyclesCompleted = elapsedTime / (totalCycleDuration * 1000L);
+                cycleStartTime += cyclesCompleted * (totalCycleDuration * 1000L);
+
+                // Recalculate elapsed time after reset
+                elapsedTime = currentTime - cycleStartTime;
+            }
+
+            if (elapsedTime < normalPeriod * 1000L) {
+                return normalPeriod * 1000L - elapsedTime;
+            } else if (elapsedTime < (normalPeriod + degradationPeriod) * 1000L) {
+                return (normalPeriod + degradationPeriod) * 1000L - elapsedTime;
+            } else if (elapsedTime < (normalPeriod + degradationPeriod + failurePeriod) * 1000L) {
+                return (normalPeriod + degradationPeriod + failurePeriod) * 1000L - elapsedTime;
+            } else {
+                return (normalPeriod + degradationPeriod + failurePeriod + recoveryPeriod) * 1000L - elapsedTime;
+            }
+        }
+
+        public int calculateCurrentDelay() {
+            ServicePhase phase = getCurrentPhase();
+            long currentTime = System.currentTimeMillis();
+            long elapsedTime = currentTime - cycleStartTime;
+
+            // Check if we've completed a full cycle and need to reset
+            if (elapsedTime >= totalCycleDuration * 1000L) {
+                // Reset the cycle start time to begin a new cycle
+                long cyclesCompleted = elapsedTime / (totalCycleDuration * 1000L);
+                cycleStartTime += cyclesCompleted * (totalCycleDuration * 1000L);
+
+                // Recalculate elapsed time after reset
+                elapsedTime = currentTime - cycleStartTime;
+            }
+
+            switch (phase) {
+                case NORMAL:
+                    return initialDelay;
+
+                case DEGRADING:
+                    // Calculate how far we are through the degradation period (0.0 to 1.0)
+                    double degradationProgress = (double) (elapsedTime - normalPeriod * 1000L) / (degradationPeriod * 1000L);
+                    // Scale from initial delay to failure threshold
+                    return (int) (initialDelay + degradationProgress * (failureThreshold - initialDelay));
+
+                case FAILING:
+                    // During failure phase, always use the threshold or higher
+                    return failureThreshold;
+
+                case RECOVERING:
+                    // Calculate how far we are through the recovery period (0.0 to 1.0)
+                    double recoveryProgress = (double) (elapsedTime - (normalPeriod + degradationPeriod + failurePeriod) * 1000L) / (recoveryPeriod * 1000L);
+                    // Scale from failure threshold back to initial delay
+                    return (int) (failureThreshold - recoveryProgress * (failureThreshold - initialDelay));
+
+                default:
+                    return initialDelay;
+            }
+        }
+
+        public String getExpectedCircuitBreakerState() {
+            ServicePhase phase = getCurrentPhase();
+
+            switch (phase) {
+                case NORMAL:
+                    return "CLOSED";
+                case DEGRADING:
+                    return "CLOSED (approaching threshold)";
+                case FAILING:
+                    return "OPEN";
+                case RECOVERING:
+                    double recoveryProgress = (double) getTimeRemainingInPhase() / (recoveryPeriod * 1000L);
+                    if (recoveryProgress > 0.7) {
+                        return "OPEN";
+                    } else if (recoveryProgress > 0.3) {
+                        return "HALF-OPEN";
+                    } else {
+                        return "CLOSED";
+                    }
+                default:
+                    return "CLOSED";
+            }
+        }
     }
 }
