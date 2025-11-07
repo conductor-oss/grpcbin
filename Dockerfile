@@ -32,7 +32,7 @@ COPY build/libs/grpcbin-*server.jar /app/libs/server.jar
 
 RUN chmod +x /app/startup.sh
 
-EXPOSE 50051
+EXPOSE 50051 50052
 
 USER conductor
 

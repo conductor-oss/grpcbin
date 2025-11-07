@@ -12,4 +12,4 @@ fi
 echo "Starting grpcbin with $JVM_MEMORY memory settings"
 export LD_PRELOAD=/lib/libgcompat.so.0:/usr/lib/libunwind.so.8
 
-nohup java $JVM_MEMORY -XX:+UseG1GC -jar -DCONDUCTOR_CONFIG_FILE=$config_file server.jar
+exec java $JVM_MEMORY -XX:+UseG1GC -jar -DCONDUCTOR_CONFIG_FILE=$config_file server.jar
