@@ -18,6 +18,8 @@ service HelloWorldService {
   rpc ComplexRequest(complex.ComplexMessage) returns (complex.ComplexMessage) {}
   rpc ComplexRequestStream(complex.ComplexMessage) returns (stream complex.ComplexMessage) {}
 
+  rpc SayHelloHanging (HelloRequest) returns (HelloResponse) {}
+
   rpc SayHelloWithCyclicalDegradation (DegradationRequest) returns (DegradationResponse) {}
   rpc ResetSimulationState (ResetRequest) returns (ResetResponse) {}
 }

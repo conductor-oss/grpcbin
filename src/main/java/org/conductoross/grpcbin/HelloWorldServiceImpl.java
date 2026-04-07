@@ -153,6 +153,23 @@ public class HelloWorldServiceImpl extends HelloWorldServiceGrpc.HelloWorldServi
 
     }
 
+    /**
+     * Simulates a gRPC call that hangs indefinitely — never sends a response.
+     * Used to reproduce thread-pool exhaustion when CallOptions has no deadline.
+     */
+    @Override
+    public void sayHelloHanging(HelloRequest request, StreamObserver<HelloResponse> responseObserver) {
+        System.out.println("sayHelloHanging called — blocking forever (no response will be sent)");
+        try {
+            // Block forever to simulate a hanging upstream
+            Thread.sleep(Long.MAX_VALUE);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            responseObserver.onError(
+                    Status.CANCELLED.withDescription("Hanging call was interrupted").asRuntimeException());
+        }
+    }
+
     @Override
     public void sayHelloWithExternalDependency(org.conductoross.grpcbin.HelloRequest request,
                                                io.grpc.stub.StreamObserver<org.conductoross.grpcbin.HelloResponse> responseObserver) {
