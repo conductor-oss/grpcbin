@@ -1,17 +1,21 @@
 package org.conductoross.grpcbin;
 
-import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContextBuilder;
 import io.grpc.protobuf.services.ProtoReflectionService;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 
 public class GRPCServer {
 
     private Server noAuthServer;
     private Server authServer;
+    private Server tlsServer;
 
     private void start() throws IOException {
         // Server without authentication (port 50051)
@@ -33,6 +37,19 @@ public class GRPCServer {
                 .start();
         System.out.println("🔐 Server WITH auth started on port " + authPort + " (requires Bearer token: test-bearer-token-123)");
 
+        // TLS server with auth (port 50053) — self-signed cert loaded from resources
+        int tlsPort = 50053;
+        InputStream certChain = GRPCServer.class.getResourceAsStream("/server.crt");
+        InputStream privateKey = GRPCServer.class.getResourceAsStream("/server.key");
+        tlsServer = NettyServerBuilder.forPort(tlsPort)
+                .sslContext(GrpcSslContexts.configure(SslContextBuilder.forServer(certChain, privateKey)).build())
+                .addService(new HelloWorldServiceImpl())
+                .addService(ProtoReflectionService.newInstance())
+                .intercept(new AuthInterceptor())
+                .build()
+                .start();
+        System.out.println("🔒 Server WITH TLS+auth started on port " + tlsPort + " (self-signed cert, requires Bearer token: test-bearer-token-123)");
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("Shutting down gRPC servers");
             GRPCServer.this.stop();
@@ -49,6 +66,10 @@ public class GRPCServer {
                 authServer.shutdown().awaitTermination(5, TimeUnit.SECONDS);
                 System.out.println("Auth server shut down");
             }
+            if (tlsServer != null) {
+                tlsServer.shutdown().awaitTermination(5, TimeUnit.SECONDS);
+                System.out.println("TLS server shut down");
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -60,6 +81,9 @@ public class GRPCServer {
         }
         if (authServer != null) {
             authServer.awaitTermination();
+        }
+        if (tlsServer != null) {
+            tlsServer.awaitTermination();
         }
     }
 
