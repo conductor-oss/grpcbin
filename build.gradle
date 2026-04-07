@@ -49,6 +49,19 @@ protobuf {
 	}
 }
 
+// Generate self-signed TLS cert/key for the test gRPC server if not already present
+tasks.register('generateTlsCert', Exec) {
+    def certFile = file('src/main/resources/server.crt')
+    def keyFile  = file('src/main/resources/server.key')
+    onlyIf { !certFile.exists() || !keyFile.exists() }
+    commandLine 'openssl', 'req', '-x509', '-newkey', 'rsa:2048',
+            '-keyout', keyFile.absolutePath,
+            '-out', certFile.absolutePath,
+            '-days', '3650', '-nodes', '-subj', '/CN=localhost'
+    doFirst { mkdir 'src/main/resources' }
+}
+processResources.dependsOn generateTlsCert
+
 // Configure JAR tasks
 jar {
 	manifest {
