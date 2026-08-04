@@ -200,6 +200,39 @@ public class HelloWorldServiceImpl extends HelloWorldServiceGrpc.HelloWorldServi
     }
 
     @Override
+    public io.grpc.stub.StreamObserver<HelloRequest> sayHellos(StreamObserver<HelloResponse> responseObserver) {
+        java.util.List<String> names = new java.util.ArrayList<>();
+        return new io.grpc.stub.StreamObserver<HelloRequest>() {
+            @Override
+            public void onNext(HelloRequest request) { names.add(request.getName()); }
+            @Override
+            public void onError(Throwable t) { responseObserver.onError(t); }
+            @Override
+            public void onCompleted() {
+                String message = names.isEmpty() ? "Hello!" : "Hello, " + String.join(" and ", names);
+                responseObserver.onNext(HelloResponse.newBuilder().setMessage(message).build());
+                responseObserver.onCompleted();
+            }
+        };
+    }
+
+    @Override
+    public io.grpc.stub.StreamObserver<HelloRequest> sayHelloToEach(StreamObserver<HelloResponse> responseObserver) {
+        return new io.grpc.stub.StreamObserver<HelloRequest>() {
+            @Override
+            public void onNext(HelloRequest request) {
+                responseObserver.onNext(HelloResponse.newBuilder()
+                        .setMessage("Hello, " + request.getName())
+                        .build());
+            }
+            @Override
+            public void onError(Throwable t) { responseObserver.onError(t); }
+            @Override
+            public void onCompleted() { responseObserver.onCompleted(); }
+        };
+    }
+
+    @Override
     public void complexRequestStream(Complex.ComplexMessage request, StreamObserver<Complex.ComplexMessage> responseObserver) {
         for (int i = 0; i < 100; i++) {
             var response = Complex.ComplexMessage.newBuilder(request)

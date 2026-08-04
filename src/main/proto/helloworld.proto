@@ -18,6 +18,9 @@ service HelloWorldService {
   rpc ComplexRequest(complex.ComplexMessage) returns (complex.ComplexMessage) {}
   rpc ComplexRequestStream(complex.ComplexMessage) returns (stream complex.ComplexMessage) {}
 
+  rpc SayHellos (stream HelloRequest) returns (HelloResponse) {}
+  rpc SayHelloToEach (stream HelloRequest) returns (stream HelloResponse) {}
+
   rpc SayHelloHanging (HelloRequest) returns (HelloResponse) {}
 
   rpc SayHelloWithCyclicalDegradation (DegradationRequest) returns (DegradationResponse) {}
