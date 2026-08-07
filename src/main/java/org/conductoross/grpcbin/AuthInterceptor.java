@@ -1,6 +1,7 @@
 package org.conductoross.grpcbin;
 
 import io.grpc.*;
+import io.grpc.Status;
 
 public class AuthInterceptor implements ServerInterceptor {
     
