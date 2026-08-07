@@ -22,7 +22,6 @@ public class GRPCServer {
         int noAuthPort = 50051;
         noAuthServer = ServerBuilder.forPort(noAuthPort)
                 .addService(new HelloWorldServiceImpl())
-                .addService(new KitchensinkServiceImpl())
                 .addService(ProtoReflectionService.newInstance())
                 .build()
                 .start();
@@ -32,7 +31,6 @@ public class GRPCServer {
         int authPort = 50052;
         authServer = ServerBuilder.forPort(authPort)
                 .addService(new HelloWorldServiceImpl())
-                .addService(new KitchensinkServiceImpl())
                 .addService(ProtoReflectionService.newInstance())
                 .intercept(new AuthInterceptor()) // Add auth interceptor
                 .build()
@@ -46,7 +44,6 @@ public class GRPCServer {
         tlsServer = NettyServerBuilder.forPort(tlsPort)
                 .sslContext(GrpcSslContexts.configure(SslContextBuilder.forServer(certChain, privateKey)).build())
                 .addService(new HelloWorldServiceImpl())
-                .addService(new KitchensinkServiceImpl())
                 .addService(ProtoReflectionService.newInstance())
                 .intercept(new AuthInterceptor())
                 .build()
