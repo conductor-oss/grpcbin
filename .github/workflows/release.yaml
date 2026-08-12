@@ -54,4 +54,4 @@ jobs:
           push: true
           tags: |
             ghcr.io/conductor-oss/grpcbin:latest
-            ghcr.io/conductor-oss/grpcbin:${{ github.ref_name }}
+            ${{ github.event_name == 'release' && format('ghcr.io/conductor-oss/grpcbin:{0}', github.ref_name) || '' }}
