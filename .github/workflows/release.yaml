@@ -54,3 +54,4 @@ jobs:
           push: true
           tags: |
             ghcr.io/conductor-oss/grpcbin:latest
+            ghcr.io/conductor-oss/grpcbin:${{ github.ref_name }}
